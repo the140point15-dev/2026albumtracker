@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Album Listens Calendar</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --text-muted: #888;
+            --border-color: #333;
+            --accent-color: #ffb703;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 900px;
+            width: 100%;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            letter-spacing: -0.5px;
+        }
+
+        .sort-btn {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: border-color 0.1s ease, background-color 0.1s ease;
+        }
+
+        .sort-btn:hover {
+            border-color: var(--accent-color);
+            background-color: #252525;
+        }
+
+        .calendar-container {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .month-section h2 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            color: var(--text-muted);
+        }
+
+        .days-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+        }
+
+        .day-box {
+            aspect-ratio: 1;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.1s ease, border-color 0.1s ease;
+        }
+
+        .day-box:hover {
+            border-color: var(--accent-color);
+            transform: scale(1.03);
+            z-index: 10;
+        }
+
+        .day-box.empty {
+            background-color: transparent;
+            border: 1px dashed rgba(255, 255, 255, 0.05);
+            cursor: default;
+        }
+
+        .day-box.empty:hover {
+            transform: none;
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .day-number {
+            position: absolute;
+            top: 4px;
+            left: 6px;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.7);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 1px 4px;
+            border-radius: 3px;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        /* Single Album Layout */
+        .single-album img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Double Album Layout (Diagonal Split) */
+        .double-album {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .album-triangle-1 {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            clip-path: polygon(0 0, 100% 0, 0 100%);
+        }
+
+        .album-triangle-2 {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            clip-path: polygon(100% 0, 100% 100%, 0 100%);
+        }
+
+        .album-triangle-1 img, .album-triangle-2 img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 400px;
+            width: 90%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .modal-close:hover {
+            color: var(--text-color);
+        }
+
+        .modal-album {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        .modal-album:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .modal-album img {
+            width: 90px;
+            height: 90px;
+            object-fit: cover;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+
+        .modal-info h3 {
+            margin: 0 0 3px 0;
+            font-size: 1.05rem;
+        }
+
+        .modal-info p {
+            margin: 0 0 6px 0;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .modal-rating-container {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .modal-stars {
+            color: var(--accent-color);
+            font-size: 0.95rem;
+            letter-spacing: 1px;
+        }
+
+        .modal-text-rating {
+            color: var(--accent-color);
+            font-weight: bold;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-container">
+        <h1>Daily Album Listens</h1>
+        <button class="sort-btn" id="sortToggleBtn">Sort: Chronological</button>
+    </div>
+
+    <div class="calendar-container" id="calendarContainer">Loading listens...</div>
+
+    <!-- Modal for viewing album details -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-card">
+            <button class="modal-close" id="modalClose">&times;</button>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <script src="music-data.js"></script>
+
+    <script>
+        let isNewestFirst = false;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            if (typeof window.musicLogs !== 'undefined') {
+                renderCalendar();
+                
+                document.getElementById('sortToggleBtn').addEventListener('click', () => {
+                    isNewestFirst = !isNewestFirst;
+                    document.getElementById('sortToggleBtn').textContent = isNewestFirst ? "Sort: Newest First" : "Sort: Chronological";
+                    renderCalendar();
+                });
+            } else {
+                document.getElementById('calendarContainer').innerHTML = 
+                    `<p style="color: #ff6b6b;">Error: Could not find music-data.js. Make sure you ran your Obsidian script to generate it in this folder!</p>`;
+            }
+        });
+
+        function formatRatingToStars(ratingStr) {
+            let match = ratingStr.match(/Rating:\s*([0-9.]+)/);
+            if (!match) return { stars: ratingStr, textLabel: "" };
+            
+            let num = parseFloat(match[1]);
+            if (isNaN(num)) return { stars: ratingStr, textLabel: "" };
+
+            let stars = "";
+            let label = "";
+
+            if (num === 0.5) { stars = "½"; label = "HATE IT"; }
+            else if (num === 1.0) { stars = "★"; label = "DISLIKE"; }
+            else if (num === 1.5) { stars = "★½"; label = "NOT GOOD"; }
+            else if (num === 2.0) { stars = "★★"; label = "OKAY"; }
+            else if (num === 2.5) { stars = "★★½"; label = "DECENT"; }
+            else if (num === 3.0) { stars = "★★★"; label = "GOOD"; }
+            else if (num === 3.5) { stars = "★★★½"; label = "REALLY GOOD"; }
+            else if (num === 4.0) { stars = "★★★★"; label = "GREAT"; }
+            else if (num === 4.5) { stars = "★★★★½"; label = "AMAZING"; }
+            else if (num === 5.0) { stars = "★★★★★"; label = "ALL TIME BANGER"; }
+            else {
+                // Fallback for any other custom numbers
+                let full = Math.floor(num);
+                let half = (num % 1) >= 0.5;
+                stars = "★".repeat(full) + (half ? "½" : "");
+                label = "";
+            }
+
+            return { stars: stars, textLabel: `— ${label}` };
+        }
+
+        function renderCalendar() {
+            const container = document.getElementById('calendarContainer');
+            container.innerHTML = '';
+
+            let logs = [...window.musicLogs];
+
+            logs.sort((a, b) => {
+                const parseDate = (dStr) => {
+                    if (!dStr) return 0;
+                    const parts = dStr.split('/');
+                    if (parts.length !== 3) return 0;
+                    return parseInt(`${parts[2]}${parts[1]}${parts[0]}`, 10);
+                };
+                return isNewestFirst ? parseDate(b.listenDate) - parseDate(a.listenDate) : parseDate(a.listenDate) - parseDate(b.listenDate);
+            });
+
+            const logsByDate = {};
+            logs.forEach(log => {
+                if (!logsByDate[log.listenDate]) {
+                    logsByDate[log.listenDate] = [];
+                }
+                logsByDate[log.listenDate].push(log);
+            });
+
+            const monthsMap = {};
+            logs.forEach(log => {
+                const parts = log.listenDate.split('/');
+                if (parts.length === 3) {
+                    const monthYearKey = `${parts[1]}-${parts[2]}`;
+                    if (!monthsMap[monthYearKey]) {
+                        monthsMap[monthYearKey] = { month: parseInt(parts[1]), year: parseInt(parts[2]) };
+                    }
+                }
+            });
+
+            const sortedMonths = Object.values(monthsMap).sort((a, b) => {
+                if (a.year !== b.year) {
+                    return isNewestFirst ? b.year - a.year : a.year - b.year;
+                }
+                return isNewestFirst ? b.month - a.month : a.month - b.month;
+            });
+
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+            sortedMonths.forEach(mObj => {
+                const monthSection = document.createElement('div');
+                monthSection.className = 'month-section';
+
+                const h2 = document.createElement('h2');
+                h2.textContent = `${monthNames[mObj.month - 1]} ${mObj.year}`;
+                monthSection.appendChild(h2);
+
+                const grid = document.createElement('div');
+                grid.className = 'days-grid';
+
+                const daysInMonth = new Date(mObj.year, mObj.month, 0).getDate();
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayStr = String(day).padStart(2, '0');
+                    const monthStr = String(mObj.month).padStart(2, '0');
+                    const dateKey = `${dayStr}/${monthStr}/${mObj.year}`;
+
+                    const box = document.createElement('div');
+                    box.className = 'day-box';
+
+                    const dayNumLabel = document.createElement('span');
+                    dayNumLabel.className = 'day-number';
+                    dayNumLabel.textContent = day;
+                    box.appendChild(dayNumLabel);
+
+                    const dayListens = logsByDate[dateKey] || [];
+
+                    if (dayListens.length === 0) {
+                        box.classList.add('empty');
+                    } else if (dayListens.length === 1) {
+                        box.classList.add('single-album');
+                        const img = document.createElement('img');
+                        img.src = dayListens[0].cover || '';
+                        img.alt = dayListens[0].title;
+                        box.appendChild(img);
+
+                        box.addEventListener('click', () => showModal(dayListens));
+                    } else {
+                        box.classList.add('double-album');
+
+                        const tri1 = document.createElement('div');
+                        tri1.className = 'album-triangle-1';
+                        const img1 = document.createElement('img');
+                        img1.src = dayListens[0].cover || '';
+                        tri1.appendChild(img1);
+
+                        const tri2 = document.createElement('div');
+                        tri2.className = 'album-triangle-2';
+                        const img2 = document.createElement('img');
+                        img2.src = dayListens[1].cover || '';
+                        tri2.appendChild(img2);
+
+                        box.appendChild(tri1);
+                        box.appendChild(tri2);
+
+                        box.addEventListener('click', () => showModal(dayListens));
+                    }
+
+                    grid.appendChild(box);
+                }
+
+                monthSection.appendChild(grid);
+                container.appendChild(monthSection);
+            });
+        }
+
+        function showModal(listens) {
+            const overlay = document.getElementById('modalOverlay');
+            const content = document.getElementById('modalContent');
+            content.innerHTML = '';
+
+            listens.forEach(item => {
+                let parts = item.title.split(' - ');
+                let artist = parts.length > 1 ? parts[0] : "Unknown Artist";
+                let albumTitle = parts.length > 1 ? parts.slice(1).join(' - ') : item.title;
+
+                let ratingData = formatRatingToStars(item.description);
+
+                let albumDiv = document.createElement('div');
+                albumDiv.className = 'modal-album';
+                albumDiv.innerHTML = `
+                    <img src="${item.cover}" alt="${item.title}">
+                    <div class="modal-info">
+                        <h3>${albumTitle}</h3>
+                        <p>${artist} (${item.releaseYear || 'N/A'}) • ${item.listenDate}</p>
+                        <div class="modal-rating-container">
+                            <div class="modal-stars">${ratingData.stars} <span class="modal-text-rating">${ratingData.textLabel}</span></div>
+                        </div>
+                    </div>
+                `;
+                content.appendChild(albumDiv);
+            });
+
+            overlay.classList.add('active');
+        }
+
+        document.getElementById('modalClose').addEventListener('click', () => {
+            document.getElementById('modalOverlay').classList.remove('active');
+        });
+
+        document.getElementById('modalOverlay').addEventListener('click', (e) => {
+            if (e.target.id === 'modalOverlay') {
+                e.target.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>
